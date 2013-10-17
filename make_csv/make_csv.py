@@ -40,9 +40,11 @@ if __name__ == '__main__':
     # 変換元のCSVの1行目(表示)、13行目(フリガナ)をもとに
     # 表示・ふりがな・清音ふりがな、文字数という形に変換する
     with open(args.file_path, newline='', encoding='euc_jp') as rfile:
-        with open(file_name & '_out.csv', 'w', encoding='utf-8', newline='') as wfile:
+        with open(file_name + '_out.csv', 'w', encoding='utf-8', newline='') as wfile:
             rd = csv.reader(rfile)
             writer = csv.writer(wfile, lineterminator='\n')
+            # ヘッダの追加
+            writer.writerow(['surface', 'reading', 'reading_seion', 'count_hira'])
             for row in rd:
                 hira = hiragana(row[12])
                 writer.writerow([row[0], hira, daku_to_sei(hira), len(hira)])
