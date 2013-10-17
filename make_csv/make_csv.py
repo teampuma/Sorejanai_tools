@@ -35,7 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('file_path')
     args = parser.parse_args()
     file_full_name = os.path.basename(args.file_path)
-    file_name = file_full_name.split(sep='.')[0]
+    file_name = '.'.join(file_full_name.split(sep='.')[:-1])
 
     # 変換元のCSVの1行目(表示)、13行目(フリガナ)をもとに
     # 表示・ふりがな・清音ふりがな、文字数という形に変換する
