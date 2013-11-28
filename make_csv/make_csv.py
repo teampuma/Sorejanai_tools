@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
-import re, csv, os, json
+import re, csv, os, json, time
 import argparse
-from warnings import catch_warnings
+from geopy.geocoders import GoogleV3
+from geopy.exc import GeocoderQuotaExceeded
 
 '''
 めかぶの名詞ファイルから
@@ -38,6 +39,7 @@ if __name__ == '__main__':
     file_full_name = os.path.basename(args.file_path)
     file_name = '.'.join(file_full_name.split(sep='.')[:-1])
 
+    geolocator = GoogleV3()
     # 最初に場所ファイルかチェック
     # 場所や座標があったら場所ファイルと判断
     locfile = False
@@ -52,23 +54,47 @@ if __name__ == '__main__':
         jsondump = []
         with open(args.file_path, encoding='euc_jp') as rfile:
             rd = csv.reader(rfile)
+            exceed = False
+            cnt_00 = cnt_chg = cnt_not = 0
             for row in rd:
                 hira = hiragana(row[12])
                 sei = daku_to_sei(hira)
                 sei_search = sei[-2:]
+
+                lon = lat = 0.0
                 try:
-                    d = json.dumps({
-                        'surface': row[0],
-                        'reading': hira,
-                        'reading_seion': sei,
-                        'reading_search': sei_search,
-                        'count_hira': len(hira),
-                        'loc': [float(row[14]), float(row[15])]
-                    },  ensure_ascii=False)
-                    jsondump.append(d)
+                    lon, lat = float(row[14]), float(row[15])
                 except ValueError as e:
                     print("エラーのためスキップ:" + str(e))
+                    continue
 
+                # 経度と緯度の取得
+                if lon == 0.0 and lat == 0.0:
+                    cnt_00 += 1
+                    if not exceed:
+                        cnt_chg += 1
+                        # ０，０の場合は場所が取れてなかったもの。適当な値を入れる
+                        try:
+                            tmp = geolocator.geocode(row[0])
+                            time.sleep(1)
+                            if tmp:
+                                # ヒットしたらセット。しなかったらスルー
+                                _, (lat, lon) = tmp
+                            else:
+                                cnt_not += 1
+                        except GeocoderQuotaExceeded:
+                            exceed = True
+
+                d = json.dumps({
+                    'surface': row[0],
+                    'reading': hira,
+                    'reading_seion': sei,
+                    'reading_search': sei_search,
+                    'count_hira': len(hira),
+                    'loc': [lon, lat]
+                },  ensure_ascii=False)
+                jsondump.append(d)
+            print("緯度経度変更対象：%d件　変更済み：%d件　変更できなかった：%d件" % (cnt_00, cnt_chg, cnt_not))
         with open(file_name + '_out.json', 'w', encoding='utf-8') as wfile:
             for r in jsondump:
                 wfile.write(r + '\n')
